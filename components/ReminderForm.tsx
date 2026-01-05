@@ -32,7 +32,6 @@ export default function ReminderForm({ initialData, onSubmit, onCancel }: Remind
     const [formData, setFormData] = useState<Partial<IReminder>>({
         title: '',
         description: '',
-        imageUrl: '',
         targetTime: '12:00',
         recurrenceType: 'daily',
         weekDays: [],
@@ -143,14 +142,6 @@ export default function ReminderForm({ initialData, onSubmit, onCancel }: Remind
                             placeholder="Optional details..."
                         />
                     </div>
-                    <div className="grid gap-2">
-                        <Label>Image URL (Optional)</Label>
-                        <Input
-                            value={formData.imageUrl}
-                            onChange={(e) => handleChange('imageUrl', e.target.value)}
-                            placeholder="https://..."
-                        />
-                    </div>
                     <div className="flex items-center space-x-2 pt-2">
                         <Switch
                             checked={formData.active}
@@ -223,6 +214,20 @@ export default function ReminderForm({ initialData, onSubmit, onCancel }: Remind
                                     </Button>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {formData.recurrenceType === 'none' && (
+                        <div className="space-y-3">
+                            <Label>Date (Optional - Default Today)</Label>
+                            <Input
+                                type="date"
+                                value={formData.date ? new Date(formData.date).toISOString().split('T')[0] : ''}
+                                onChange={(e) => handleChange('date', e.target.value ? new Date(e.target.value) : undefined)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Leave blank to run recurringly every day until marked inactive (Legacy) or treat as Today.
+                            </p>
                         </div>
                     )}
 

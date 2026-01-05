@@ -15,9 +15,9 @@ function cn(...inputs: ClassValue[]) {
 
 // Extended types
 type ReminderWithStatus = IReminder & {
-    activeRule?: IWarningRule;
+    activeRule?: IWarningRule; // Already optional in interface, but explicit here
     minutesUntil: number;
-    isOverdue: boolean;
+    isOverdue?: boolean;
 };
 
 export default function DisplayPage() {
@@ -60,102 +60,188 @@ export default function DisplayPage() {
         if (!reminders.length) return [];
 
         const now = currentTime;
-        const currentDayOfWk = getDay(now);
-        const currentDate = getDate(now);
 
-        // 1. Filter Active & Eligible for Today
-        const todaysReminders = reminders.filter(r => {
-            if (!r.active) return false;
-            if (r.recurrenceType === 'daily') return true;
-            if (r.recurrenceType === 'weekly') return r.weekDays?.includes(currentDayOfWk);
-            if (r.recurrenceType === 'monthly') return r.monthDays?.includes(currentDate);
-            if (r.recurrenceType === 'none') return true; // Assume 'OneTime' is for today
-            // Legacy
-            if (r.type === 'Recurring' && r.days) {
-                const dayName = format(now, 'EEE');
-                return r.days.includes('Daily') || r.days.includes(dayName);
+        // Helper to find the next valid occurrence
+        const getNextOccurrence = (r: IReminder): Date | null => {
+            const todayStr = format(now, 'yyyy-MM-dd');
+            const targetToday = parse(`${todayStr} ${r.targetTime}`, 'yyyy-MM-dd HH:mm', now);
+
+            // 1. One-Time Events
+            if (r.recurrenceType === 'none') {
+                if (r.date) {
+                    // If specific date is set, use it.
+                    // r.date is likely ISO string from DB. 
+                    const dateStr = format(new Date(r.date), 'yyyy-MM-dd');
+                    const specificTarget = parse(`${dateStr} ${r.targetTime}`, 'yyyy-MM-dd HH:mm', now);
+
+                    // If it's passed more than 24h ago, strict hide? 
+                    // Or just standard "passed" logic.
+                    return specificTarget;
+                }
+                // Fallback to "Today" if no date specified (Legacy behavior)
+                return targetToday;
             }
-            return false;
-        });
 
-        return todaysReminders.map(r => {
-            const target = parse(r.targetTime, 'HH:mm', now);
-            const diff = differenceInMinutes(target, now);
+            // 2. Daily
+            if (r.recurrenceType === 'daily') {
+                if (differenceInMinutes(targetToday, now) < 0) {
+                    // Passed for today, so next is tomorrow
+                    return addMinutes(targetToday, 24 * 60);
+                }
+                return targetToday;
+            }
 
-            // Logic: Is it overdue?
-            // If diff < 0, it's overdue.
-            // We want to show it for maybe 30 mins after due time?
-            // Unless user wants "next cycle". But for a "daily display", usually we show "Today's tasks".
-            // So if it's 2pm and task was 10am, it's PASSED.
-            // If it's 2pm and task is 2:05pm, it's PENDING.
+            // 3. Weekly (weekDays: 0-6)
+            if (r.recurrenceType === 'weekly' && r.weekDays?.length) {
+                // Sort weekdays
+                const sortedDays = [...r.weekDays].sort();
+                const currentDay = getDay(now);
 
-            // Overdue Logic:
-            // We'll treat anything from -30 mins to 0 mins as "Overdue / Happening Now".
-            // Anything < -30 is "Done" for the display (hidden).
+                // Check today first
+                if (sortedDays.includes(currentDay)) {
+                    if (differenceInMinutes(targetToday, now) >= 0) {
+                        return targetToday;
+                    }
+                }
 
-            let activeRule: IWarningRule | undefined;
-            let flashActive = false;
+                // Find next day in list
+                let nextDay = sortedDays.find(d => d > currentDay);
+                if (nextDay === undefined) nextDay = sortedDays[0]; // Wrap around to first day
 
-            if (r.warningRules && r.warningRules.length > 0) {
-                // Sort rules by minutes ascending
-                const sortedRules = [...r.warningRules].sort((a, b) => a.minutes - b.minutes);
+                // Calculate days to add
+                let daysToAdd = 0;
+                if (nextDay > currentDay) {
+                    daysToAdd = nextDay - currentDay;
+                } else {
+                    // Wrap around (e.g. today is Fri(5), next is Mon(1)) -> 2 + 1 = 3 days? No.
+                    // 7 - 5 + 1 = 3.
+                    daysToAdd = 7 - currentDay + nextDay;
+                }
 
-                // Find the most appropriate rule.
-                // We only look for rules that trigger BEFORE or AT due time (positive diff)
-                // Since we hide reminders < 0, we don't need to handle past rules much,
-                // BUT: A rule could be "0 minutes" (At time). 
+                return addMinutes(targetToday, daysToAdd * 24 * 60);
+            }
 
-                if (diff >= 0) {
-                    const applicable = sortedRules.filter(rule => diff <= rule.minutes);
-                    if (applicable.length > 0) {
-                        activeRule = applicable[0];
+            // 4. Monthly (monthDays: 1-31)
+            if (r.recurrenceType === 'monthly' && r.monthDays?.length) {
+                const currentDayOfMonth = getDate(now);
+                const sortedDays = [...r.monthDays].sort((a, b) => a - b);
 
-                        // Flash Duration Logic
-                        // Trigger Time = TargetTime - rule.minutes.
-                        // Current Time > Trigger Time.
-                        // We need to keep flashing if within duration, even if we are strictly filtering < 0?
-                        // Wait, if filter is < 0, then we only show UP TO due time.
-                        // So a "0 minute" rule would trigger AT 0.
-                        // And "5 minute duration" implies it should flash for 5 mins AFTER due time?
-                        // The user said: "once the time pass then its done". 
-                        // This implies no flashing after time pass either.
-                        // So we assume flashing happens LEADING UP TO the time.
-                        // OR: If rule is "10 mins before", it flashes from T-10 to T-0.
+                // Check Today (Remaining Time)
+                if (sortedDays.includes(currentDayOfMonth)) {
+                    if (differenceInMinutes(targetToday, now) >= 0) {
+                        return targetToday;
+                    }
+                }
 
-                        // Revised Logic based on "Done immediately":
-                        // We accept the rule if we are within its window (diff <= rule.minutes).
-                        // We flash if activeRule.flash is true. 
-                        // We simply don't check duration 'after' due time because the item is gone.
-                        // But we might want to check duration if the rule starts ERLY.
-                        // e.g. Rule starts at 60m. Flash Duration 5m.
-                        // Triggers at T-60. Flashes until T-55. 
-                        // Current diff is 30. (Within 60). Should it flash? No.
+                // Find Next Day (This Month)
+                const nextDayLater = sortedDays.find(d => d > currentDayOfMonth);
+                if (nextDayLater) {
+                    return addMinutes(targetToday, (nextDayLater - currentDayOfMonth) * 24 * 60);
+                }
 
-                        const triggerTime = addMinutes(target, -activeRule.minutes);
-                        const minutesSinceTrigger = differenceInMinutes(now, triggerTime);
+                // Find Next Day (Next Month Limit 31? Safely setDate handles overflow but let's be simpler)
+                // We wrap around to the first available day in the NEXT month
+                const nextDayNextMonth = sortedDays[0];
+                let nextMonthDate = new Date(now);
+                nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+                nextMonthDate.setDate(nextDayNextMonth); // If date doesn't exist (e.g. Feb 30), JS wraps to Mar 2. Often acceptable or edge case.
 
-                        if (activeRule.flash) {
-                            const duration = activeRule.flashDuration ?? 5;
-                            if (minutesSinceTrigger >= 0 && minutesSinceTrigger < duration) {
-                                flashActive = true;
+                const nextMonthStr = format(nextMonthDate, 'yyyy-MM-dd');
+                return parse(`${nextMonthStr} ${r.targetTime}`, 'yyyy-MM-dd HH:mm', now);
+            }
+
+            // Legacy Fallback
+            if (r.type === 'Recurring' && r.days) {
+                if (r.days.includes('Daily')) {
+                    if (differenceInMinutes(targetToday, now) < 0) return addMinutes(targetToday, 24 * 60);
+                    return targetToday;
+                }
+
+                // Map day names to 0-6 (Sun-Sat)
+                const dayMap: { [key: string]: number } = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+                const mappedWeekDays: number[] = [];
+
+                for (const day of r.days) {
+                    if (dayMap[day] !== undefined) mappedWeekDays.push(dayMap[day]);
+                }
+
+                if (mappedWeekDays.length > 0) {
+                    // Same logic as Weekly
+                    const sortedDays = mappedWeekDays.sort();
+                    const currentDay = getDay(now);
+
+                    if (sortedDays.includes(currentDay) && differenceInMinutes(targetToday, now) >= 0) {
+                        return targetToday;
+                    }
+
+                    let nextDay = sortedDays.find(d => d > currentDay);
+                    if (nextDay === undefined) nextDay = sortedDays[0];
+
+                    let daysToAdd = 0;
+                    if (nextDay > currentDay) {
+                        daysToAdd = nextDay - currentDay;
+                    } else {
+                        daysToAdd = 7 - currentDay + nextDay;
+                    }
+                    return addMinutes(targetToday, daysToAdd * 24 * 60);
+                }
+                return null;
+            }
+
+            return null;
+        };
+
+        return reminders
+            .filter(r => r.active)
+            .map(r => {
+                const recurrenceDate = getNextOccurrence(r);
+                if (!recurrenceDate) return null;
+
+                const diff = differenceInMinutes(recurrenceDate, now);
+
+                // --- WARNING & FLASH LOGIC (Copied & Adapted) ---
+                let activeRule: IWarningRule | undefined;
+                let flashActive = false;
+
+                // Only process warnings if within a reasonable window (e.g. < 24 hours)
+                // We don't want next week's task flashing red unless configured.
+                // Usually warnings are "before due time".
+
+                if (r.warningRules && r.warningRules.length > 0) {
+                    const sortedRules = [...r.warningRules].sort((a, b) => a.minutes - b.minutes);
+                    // Filter rules that are applicable (diff <= rule.minutes)
+                    // e.g. Time 10 mins left. Rule 15 mins. Matches.
+                    if (diff >= 0) {
+                        const applicable = sortedRules.filter(rule => diff <= rule.minutes);
+                        if (applicable.length > 0) {
+                            activeRule = applicable[0];
+                            // Flash duration check
+                            const triggerTime = addMinutes(recurrenceDate, -activeRule.minutes);
+                            const minutesSinceTrigger = differenceInMinutes(now, triggerTime);
+
+                            if (activeRule.flash) {
+                                const duration = activeRule.flashDuration ?? 5;
+                                if (minutesSinceTrigger >= 0 && minutesSinceTrigger < duration) {
+                                    flashActive = true;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Create a modified rule object that only has flash=true if duration check passed
-            const displayedRule = activeRule ? { ...activeRule, flash: flashActive } : undefined;
+                const displayedRule = activeRule ? { ...activeRule, flash: flashActive } : undefined;
 
-            return {
-                ...r,
-                activeRule: displayedRule,
-                minutesUntil: diff,
-                isOverdue: false // No longer used
-            };
-        })
-            .filter(r => r.minutesUntil >= 0) // Strict: Remove immediately when time passes
-            .sort((a, b) => a.minutesUntil - b.minutesUntil); // Sort by time remaining
+                return {
+                    ...r,
+                    activeRule: displayedRule,
+                    minutesUntil: diff,
+                    isOverdue: false // Recurred items are never 'overdue', they become 'upcoming' 
+                };
+            })
+            .filter(r => r !== null)
+            .map(r => r as ReminderWithStatus)
+            .filter(r => r.minutesUntil >= 0) // Final check to ensure we don't show negative times
+            .sort((a, b) => a.minutesUntil - b.minutesUntil); // Sort closest first
 
     }, [reminders, currentTime, settings]); // Re-eval loop
 
@@ -305,12 +391,7 @@ export default function DisplayPage() {
                     {topReminder ? (
                         <>
                             {/* Background Image (Subtle) */}
-                            {topReminder.imageUrl && (
-                                <div
-                                    className="absolute inset-0 opacity-20 bg-cover bg-center pointer-events-none mix-blend-overlay dark:mix-blend-overlay mix-blend-multiply"
-                                    style={{ backgroundImage: `url(${topReminder.imageUrl})` }}
-                                />
-                            )}
+
 
                             {/* Alert Header */}
                             <div className="relative z-10 flex items-center justify-between shrink-0 mb-8">
@@ -357,7 +438,20 @@ export default function DisplayPage() {
                                                 OVERDUE
                                             </span>
                                         ) : (
-                                            <span>{topReminder.minutesUntil}<span className="text-3xl ml-2 opacity-50">min</span></span>
+                                            (() => {
+                                                const m = topReminder.minutesUntil;
+                                                if (m >= 1440) { // > 1 day
+                                                    const d = Math.floor(m / 1440);
+                                                    const h = Math.floor((m % 1440) / 60);
+                                                    return <span>{d}<span className="text-3xl mx-1 opacity-50">d</span>{h}<span className="text-3xl ml-1 opacity-50">h</span></span>;
+                                                }
+                                                if (m >= 60) { // > 1 hour
+                                                    const h = Math.floor(m / 60);
+                                                    const min = m % 60;
+                                                    return <span>{h}<span className="text-3xl mx-1 opacity-50">h</span>{min}<span className="text-3xl ml-1 opacity-50">min</span></span>;
+                                                }
+                                                return <span>{m}<span className="text-3xl ml-2 opacity-50">min</span></span>;
+                                            })()
                                         )}
                                     </span>
                                 </div>

@@ -12,7 +12,6 @@ export interface IWarningRule {
 export interface IReminder extends Document {
     title: string;
     description?: string;
-    imageUrl?: string;
     targetTime: string; // HH:mm
 
     // New Recurrence Logic
@@ -37,7 +36,6 @@ const ReminderSchema: Schema = new Schema(
     {
         title: { type: String, required: true },
         description: { type: String },
-        imageUrl: { type: String },
         targetTime: { type: String, required: true },
 
         recurrenceType: {
