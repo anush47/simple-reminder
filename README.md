@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# P&S Reminder Display
+
+A full-screen reminder display system for outlet monitors, built with Next.js and MongoDB.
 
 ## Getting Started
 
-First, run the development server:
+This project uses [Bun](https://bun.sh) as the runtime and package manager.
+
+### 1. Installation
+
+Install dependencies:
+```bash
+bun i
+```
+
+### 2. Environment Setup
+
+Create a `.env.local` file in the root directory (use `env.example` as a template):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+cp env.example .env.local
+```
+
+Define the required variables:
+
+- `MONGODB_URI`: Connection string for your MongoDB database.
+- `ADMIN_PASSWORD`: Password for accessing the `/admin` dashboard.
+
+### 3. Running the App
+
+Start the development server:
+```bash
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app will be available at [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Display View**: [http://localhost:3000/display](http://localhost:3000/display)
+- **Admin Dashboard**: [http://localhost:3000/admin/login](http://localhost:3000/admin/login)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Building for Production
 
-## Learn More
+To build the application for production:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To start the production server:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+bun start
+```

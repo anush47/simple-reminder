@@ -84,6 +84,22 @@ export default function SettingsPage() {
                             </Select>
                             <span className="text-sm text-muted-foreground">This setting updates the theme for all displays globally.</span>
                         </div>
+                        <div className="flex items-center space-x-4 mt-6">
+                            <Label>Flash Mode</Label>
+                            <Select
+                                value={settings.flashMode || 'card'}
+                                onValueChange={(v) => setSettings({ ...settings, flashMode: v } as any)}
+                            >
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="card">Card Only</SelectItem>
+                                    <SelectItem value="screen">Full Screen</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <span className="text-sm text-muted-foreground">Choose whether the entire screen or just the card flashes on alert.</span>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

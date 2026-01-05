@@ -74,13 +74,19 @@ export default function AdminDashboard() {
         setIsDialogOpen(true);
     };
 
+    const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        router.push('/admin/login');
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto min-h-screen bg-background text-foreground transition-colors duration-300">
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-                <div className="space-x-4">
+                <div className="space-x-4 flex items-center">
                     <Button onClick={() => router.push('/admin/settings')} variant="outline">Settings</Button>
                     <Button onClick={() => router.push('/display')} variant="secondary">Go to Display</Button>
+                    <Button onClick={handleLogout} variant="ghost" className="text-muted-foreground hover:text-destructive">Sign Out</Button>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
                             <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add Reminder</Button>
@@ -101,7 +107,7 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {reminders.map((reminder) => (
-                    <Card key={reminder._id as string} className={!reminder.active ? 'opacity-60' : ''}>
+                    <Card key={reminder._id as unknown as string} className={!reminder.active ? 'opacity-60' : ''}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">
                                 {reminder.targetTime}
@@ -118,13 +124,13 @@ export default function AdminDashboard() {
                                 {reminder.description}
                             </p>
                             <div className="text-xs text-muted-foreground mb-4">
-                                Runs: {reminder.days.join(', ')}
+                                Runs: {reminder.days?.join(', ') || 'Configured via Rule'}
                             </div>
                             <div className="flex justify-end space-x-2">
                                 <Button variant="outline" size="sm" onClick={() => openEdit(reminder)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="destructive" size="sm" onClick={() => handleDelete(reminder._id as string)}>
+                                <Button variant="destructive" size="sm" onClick={() => handleDelete(reminder._id as unknown as string)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>

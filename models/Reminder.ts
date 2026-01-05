@@ -5,6 +5,7 @@ export interface IWarningRule {
     color: string; // Tailwind class
     flash: boolean;
     flashSpeed?: 'slow' | 'normal' | 'fast';
+    flashDuration?: number; // Minutes to keep flashing
     soundUrl?: string;
 }
 
@@ -53,6 +54,7 @@ const ReminderSchema: Schema = new Schema(
             color: String,
             flash: Boolean,
             flashSpeed: String,
+            flashDuration: { type: Number, default: 5 }, // Default 5 mins
             soundUrl: String
         }],
 

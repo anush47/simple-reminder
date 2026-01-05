@@ -299,19 +299,31 @@ export default function ReminderForm({ initialData, onSubmit, onCancel }: Remind
                                             </div>
 
                                             {rule.flash && (
-                                                <Select
-                                                    value={rule.flashSpeed || 'normal'}
-                                                    onValueChange={(v) => updateRule(idx, 'flashSpeed', v)}
-                                                >
-                                                    <SelectTrigger className="w-[100px] h-8 text-xs">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="slow">Slow</SelectItem>
-                                                        <SelectItem value="normal">Normal</SelectItem>
-                                                        <SelectItem value="fast">Fast</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <>
+                                                    <Select
+                                                        value={rule.flashSpeed || 'normal'}
+                                                        onValueChange={(v) => updateRule(idx, 'flashSpeed', v)}
+                                                    >
+                                                        <SelectTrigger className="w-[90px] h-8 text-xs">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="slow">Slow</SelectItem>
+                                                            <SelectItem value="normal">Normal</SelectItem>
+                                                            <SelectItem value="fast">Fast</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <div className="flex items-center space-x-1">
+                                                        <Input
+                                                            type="number"
+                                                            value={rule.flashDuration ?? 5}
+                                                            onChange={(e) => updateRule(idx, 'flashDuration', parseInt(e.target.value))}
+                                                            className="w-14 h-8 text-xs"
+                                                            title="Duration in minutes"
+                                                        />
+                                                        <span className="text-[10px] text-muted-foreground">min</span>
+                                                    </div>
+                                                </>
                                             )}
                                         </div>
 

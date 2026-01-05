@@ -7,7 +7,7 @@ import { ThemeWatcher } from '@/components/theme-watcher';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'P&S Reminder App',
+  title: 'Simple Reminder',
   description: 'Shop floor reminder display',
 };
 
