@@ -1,6 +1,6 @@
 import { checkSiteAuth } from '@/lib/auth-check';
 
-export default async function AdminLayout({
+export default async function DisplayLayout({
     children,
 }: {
     children: React.ReactNode;

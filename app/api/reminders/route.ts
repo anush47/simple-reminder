@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Reminder from '@/models/Reminder';
+import { isSiteAuthenticated } from '@/lib/auth-check';
+
+async function checkAuth() {
+    if (!(await isSiteAuthenticated())) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return null;
+}
 
 export async function GET() {
     await dbConnect();
