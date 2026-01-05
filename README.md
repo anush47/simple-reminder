@@ -1,4 +1,4 @@
-# P&S Reminder Display
+# Simple Reminder Display
 
 A full-screen reminder display system for outlet monitors, built with Next.js and MongoDB.
 
